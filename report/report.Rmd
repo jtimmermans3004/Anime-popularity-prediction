@@ -1,0 +1,17 @@
+---
+title: "Anime popularity prediction"
+author: "Meri, Vania, Edmundo Paez, Siwei, Julie Timmermans"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: yes # table of contents
+    toc_float: true # toc floating
+    toc_collapsed: true # toc subheadings closed by default
+    toc_depth: 3 # all level 1, 2, 3 headers will be included in the TOC
+    theme: lumen  # other themes can be found here https://bootswatch.com/3/
+    code_folding: hide # include R code but have it hidden by default
+---
+
+```{r child = c('intro.Rmd', 'wrangling.Rmd', 'eda.Rmd', 'supv_learning.Rmd', 'unsupv_learning.Rmd', 'concl.Rmd')}
+
+```

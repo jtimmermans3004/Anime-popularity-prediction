@@ -1,0 +1,375 @@
+---
+title: "Anime Recommendation"
+output:
+  html_document:
+    always_allow_html: yes
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+    toc_collapsed: yes
+    toc_depth: 4
+    theme: lumen
+    code_folding: hide
+    lof_float: yes
+    fig_caption: yes
+    fig_width: 7
+    fig_height: 6
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+# Unsupervised learning analysis
+
+## Principal component analysis
+
+<p style="text-align:justify;">The Principal Component Analysis (PCA) is an unsupervised, non-parametric statistical technique used for dimensionality reduction. In the context of our project, the PCA is used to inspect the data, find clusters and dependence between the data. The PCA enables to find combinations of features that show as much variance as possible.</p>
+
+<p style="text-align:justify;">The levels of the categorical features are assigned to a number (ex: Gender Action=1, Gender Adventure=2...). The following table summarizes the dataset used to implement the principal component analysis.</p>
+
+```{r}
+datatable(data_factors, rownames=FALSE)
+```
+
+<p style="text-align:justify;">The correlation matrix in the EDA part demonstrated the relationship between different variables, for instance, `Type` and `Studios` are negatively correlated, `Studios` and `Source` are positively correlated. This indicates that information in our dataset containing observations described by multiple inter-correlated variables. Each variable could thus be combined into a different dimension. To reduce the dimensionality of our data and graphically visualize it, PCA would be implemented sequentially.</p>
+
+### Circle of correlations
+
+<p style="text-align:justify;">We will start by introducing the circle of correlation, which allows us to conclude correlations of different variables. In PCA we are interested in the components that maximize the variance. If feature scaling is not done, then a machine learning algorithm tends to weigh greater values, higher and consider smaller values as the lower values, regardless of the unit of the values. That is why the circle of correlation is fitted once the features are scaled.</p>
+
+```{r}
+#Create dataset for PCA
+
+#Scale data,since the level of different features is different
+data_PCA <- scale(data_factors[,c(-1,-4)])
+#compute the PC,
+pca <- PCA(data_PCA, ncp = 8, graph = FALSE)
+#circle of correlations
+fviz_pca_var(pca)
+```
+
+<p style="text-align:justify;">This correlation circle shows the two first principal components. PC1 explains 20.8% of the variance of the data, PC2 explains 17.6%. In total, 38,4% of the variance of the data is explained by these two components. Meanwhile, there is still a lot of unexplained variances. The closer a variable is to the circle of correlations, the better its representation on the factor map (and the more important it is to interpret these components), `Type` and `Duration` are the closest to the circle of correlation. Variables like `Rating` and `Producers`, which are closed to the centre of the plot are less important and less explained by the two components.</p>
+
+<p style="text-align:justify;">PC1 is highly positively correlated with `Source`, `Studios`,while the quality of `Source` on the factor map is not as good as `Studios`. PC 1 is also positively correlated with `Producers` as well. Besides, PC1 is negatively correlated with `Type`, which confirms that `Type` and `Studios` are negatively correlated according to the correlation matrix.</p>
+
+<p style="text-align:justify;">PC2 is strongly negatively correlated with `Duration` and positively correlated with `Type`,`Gender`,`Episodes`. In addition,`Duration` has a long array, which indicates that it is well represented.</p>
+
+<p style="text-align:justify;">In order to visualize the contributions of each feature in 2 dimension, the following Barplots is introduced. The result confirms the conclusions drawn from the circle of correlations.</p>
+
+```{r}
+#Contribution each feature
+g1 <- fviz_contrib(pca, choice = "var", axes = 1)
+g2 <- fviz_contrib(pca, choice = "var", axes = 2)
+g1+g2
+```
+
+### Individual biplot
+
+<p style="text-align:justify;">The individual biplot represents all the animes along the two dimensions. Due to the huge number of observations, it is difficult to interpret this graph visually. However, two clusters can be observed. The first cluster on the top left is positively associated with PC2 and negatively correlated to PC1. The second cluster of anime contains much more observations and is in the middle of the graph</p>
+
+```{r}
+fviz_pca_biplot(pca)
+```
+
+<p style="text-align:justify;">The `studio`, source level and the `Duration` of anime 8207 are small, in addition, its Type level is low (negatively associated with PC1 and PC2). Anime 11337 on the top left has a high type level, low duration, and a low `Studios` and `Source` level as it is highly positively correlated to PC2 and negatively correlated to PC1.</p>
+
+<p style="text-align:justify;">Since we need to reach 75% of representation of the data in order to reduce the dimension of the dataset and find dependence between the features, the screeplot would be an alternative to look at.</p>
+
+### Scree plot
+
+```{r}
+fviz_eig(pca, addlabels = TRUE, ncp=8)
+```
+
+<p style="text-align:justify;">According to scree plot, 5 dimensions are needed to achieve 75,3% of representation of the data, showing that most of the features are independent. All variables are contributing to at least one of the five dimensions. This means that the three biplots below represent >75% of the data. Due to the number of instances in the data, the biplots are not easy to read. However,below it shows two clusters of anime that are well separated by PC5 and a bit by PC3.</p> 
+
+```{r, warning=FALSE}
+p1 <- fviz_pca_biplot(pca, axes = 1:2,col.ind="thistle3") 
+p2 <- fviz_pca_biplot(pca, axes = 3:4,col.ind="thistle3") 
+p3 <- fviz_pca_biplot(pca, axes = 5:6,col.ind="thistle3") 
+grid.arrange(p1, p2, p3, nrow = 2, ncol=2)
+```
+
+<p style="text-align:justify;">By looking at the two dimensions graphs it is difficult to draw information because the clusters are overlapping among the two dimensions. However, most real-world datasets have inherently overlapping information, which could be best explained by overlapping clustering methods that allow one sample belong to more than one cluster.</p>  
+
+```{r}
+g3 <- fviz_contrib(pca, choice = "var", axes = 3)
+g4 <- fviz_contrib(pca, choice = "var", axes = 4)
+g5 <- fviz_contrib(pca, choice = "var", axes = 5)
+g3/g4/g5
+```
+
+<p style="text-align:justify;">Thanks to the screeplot we can now deduce that the `Rating` and `source` are the most contributing features to PC3. `Producers` and `gender` contribute the most to Dimension 4. `Episodes`, `gender` and `source` are the most important contributor to Dimension 5.</p> 
+
+### PCA to represent clustering results
+
+<p style="text-align:justify;">To finish the PCA analysis, we combine clustering and PCA, clusters are represented on the map of individuals. Based on the dendogram and the previous biplots, we made the choice to represent 3 clusters along the two dimensions that explain the most variance of the data. Moreover, the clusters are made using the manhattan distance.</p> 
+
+```{r, include=FALSE}
+hc <- hclust(dist(data_PCA, method = "manhattan"))
+plot(hc)#Dendogramm
+```
+
+```{r}
+anime.clust <- cutree(hc, k = 3)
+fviz_pca_biplot(pca,
+             col.ind = factor(anime.clust))
+```
+
+<p style="text-align:justify;">From this graph, we notice that the clusters are almost separated by the two dimensions;</p> 
+
+- Cluster 1: is less well separated by the dimensions. In fact, there is more variation in cluster 1 and it is approximately located in the middle of dimension 2 and all along dimension 1. This means that anime in cluster 1 have overall an average duration and type, while the Studios, Producers and Source levels (features mostly explained by dimension 1) varies a lot for anime inside of this cluster.
+
+- Cluster 2: is negatively associated with dimension 2, meaning that anime in cluster 2 have a high duration and a low type level. Moreover, cluster 2 is positively correlated to dimension 1, anime in cluster 1 have a high Studio and Source level.
+
+- cluster 3: is well separated by dimension 3. It is highly positively correlated to PC2 and negatively correlated to PC1. Meaning that anime in cluster 3 have mostly a low duration and a high type level. 
+
+<p style="text-align:justify;">In order to deepen and ensure this analysis, we will classify the variables into 3 groups using the k-means clustering algorithm.</p> 
+
+```{r}
+# Create a grouping variable using kmeans
+# Create 3 groups of variables (centers = 3)
+var <- get_pca_var(pca)
+set.seed(123)
+res.km <- kmeans(var$coord, centers = 3, nstart = 25)
+grp <- as.factor(res.km$cluster)
+# Color variables by groups
+fviz_pca_var(pca, col.var = grp, 
+             palette = c("#0073C2FF","#9ebcda","#8856a7"),
+             legend.title = "Cluster")
+```
+
+<p style="text-align:justify;">This circle of correlations represents the variables explaining the observations of each cluster. Cluster 1 is mostly explained by `Gender`, `Producers`, `Studios` and `Source.` In fact, this cluster is represented in the middle of the biplot (see the previous graph) and mostly along dimension 1. Cluster 2 is explained by some of the most contributing variables of dimension 2, `Type` and `Episodes.` Finally, cluster 3 is explained by `Rating` and `Duration`, `Duration` being highly correlated to dimension 2.</p> 
+
+<p style="text-align:justify;">In conclusion, the PCA enabled us to inspect the data, and deduce that 5 dimensions are needed to explain at least 75% of the variance in the data. If a high number of dimensions are needed to explain the data, meaning the features are independent. If they were highly correlated, the number of dimensions would be small. Moreover, the PCA helped to identify 3 potential clusters in the data along dimensions 1 and 2. One cluster has a large PC1 and the two others a large PC2. Now that we discovered how to reduce the dimensionality of the data set. This analysis could be complemented by other cluster methods. Indeed, the manhattan distance is only valid for numerical variables. For a clustering algorithm to yield sensible results, we could use a distance metric that can handle mixed data types such as the Gower distance.</p>
+
+## Clustering 
+
+<p style="text-align:justify;">Non-supervised models cluster and analyze datasets that don't have labels by finding some patterns and groups. In our case, we decided to use the clusters by using the Gower distance, because our dataset contains categorical and numerical variables. After creating the distance matrix, we can observe the two similar pairs table, which outputs two films of Dragon Ball. The "two most dissimilar" outputs Aim for the Ace! (1979), which is a film, and One Piece, which is one of the most popular anime, not finished yet with a lot of episodes.</p>
+
+MOST SIMILAR PAIR
+```{r}
+data_factors$Duration <- as.factor(data_factors$Duration)
+meri_data<-data_factors[1:1000,-1] ## do not consider the first column, which is the ID of anime
+gower_dist1 <- daisy(meri_data, metric = "gower")
+gower_matrix<-as.matrix(gower_dist1)     ## gower distance 
+
+# Output most similar pair
+kable(meri_data[which(gower_matrix == min(gower_matrix[gower_matrix != min(gower_matrix)]),
+        arr.ind = TRUE)[1, ], ]) %>% kable_styling()
+  
+##results: 820 and 818 are films of Dragan Ball
+
+```
+
+MOST DISSIMILAR PAIR
+```{r}
+# Output most dissimilar pair
+kable(meri_data[
+  which(gower_matrix == max(gower_matrix[gower_matrix != max(gower_matrix)]),
+        arr.ind = TRUE)[1, ], ]) %>% kable_styling()
+
+##results: 290 is Aim for the Ace! (1979) and 12 is One Piece
+```
+
+### Visualizing cluster for 1000 observations
+
+<p style="text-align:justify;">We can picture the cluster thanks to a plot showing the several clusters. However, our data contains too many observations for the capacity of our computers, so we needed to limit the analysis for the 1000 first observations to be able to plot them.</p>
+
+<p style="text-align:justify;">We can see here that the number of clusters that we should use is 5 according to the silhouette graph. Because it is the highest point giving the highest Silhouette Width.</p>
+
+```{r}
+## PLOT CLUSTER 1
+data_factors$Duration <- as.factor(data_factors$Duration)
+gower_dist1 <- daisy(data_factors[1:1000,-1], metric = "gower")
+
+sil_width <- c(NA)
+for(i in 2:10){
+  
+  pam_fit <- pam(as.matrix(gower_dist1),
+                 diss = TRUE,
+                 k = i)
+  
+  sil_width[i] <- pam_fit$silinfo$avg.width
+  
+}
+
+# Plot sihouette width (higher is better)
+plot(1:10, sil_width,
+     xlab = "Number of clusters",
+     ylab = "Silhouette Width",
+     col= "red",
+     main =("Silhouette width for the number of clusters"))
+
+lines(1:10, sil_width)
+```
+
+<p style="text-align:justify;">In the plot below we can slightly observe some clusters. However, in the middle of this graph, the clusters are overlapping. Note also that having 5 clusters for our graphical analysis can be difficult to read around the limits of the clusters.</p>
+
+```{r}
+
+sil_width <- c(NA)
+
+for(i in 2:5){
+  
+  pam_fit <- pam(as.matrix(gower_dist1),
+                 diss = TRUE,
+                 k = i)
+  
+  sil_width[i] <- pam_fit$silinfo$avg.width
+  
+}
+tsne_obj <- Rtsne(as.matrix(gower_dist1), is_distance = TRUE)
+
+tsne_data <- tsne_obj$Y %>%
+  data.frame() %>%
+  setNames(c("X", "Y")) %>%
+  mutate(cluster = factor(pam_fit$clustering),
+         name = data_Total$MAL_ID[1:1000])
+
+ggplot(aes(x = X, y = Y), data = tsne_data) +
+  geom_point(aes(color = cluster)) +
+  ggtitle("Clustering the 1000 first observations")
+
+```
+
+```{r, fig.show='hide'}
+##PLOT CLUSTER 2 
+data_factors$Duration <- as.factor(data_factors$Duration)
+gower_dist2 <- daisy(data_factors[1000:2000,-1], metric = "gower")
+
+sil_width <- c(NA)
+
+for(i in 2:7){
+  
+  pam_fit <- pam(as.matrix(gower_dist2),
+                 diss = TRUE,
+                 k = i)
+  
+  sil_width[i] <- pam_fit$silinfo$avg.width
+  
+}
+```
+
+```{r, fig.show='hide'}
+# Plot sihouette width (higher is better)
+plot(1:7, sil_width,
+     xlab = "Number of clusters",
+     ylab = "Silhouette Width")
+lines(1:7, sil_width)
+
+tsne_obj <- Rtsne(as.matrix(gower_dist2), is_distance = TRUE)
+
+tsne_data <- tsne_obj$Y %>%
+  data.frame() %>%
+  setNames(c("X", "Y")) %>%
+  mutate(cluster = factor(pam_fit$clustering),
+         name = data_Total$MAL_ID[1000:2000])
+
+```
+
+```{r, fig.show='hide'}
+ggplot(aes(x = X, y = Y), data = tsne_data) +
+  geom_point(aes(color = cluster))
+
+```
+
+### Visualizing clusters for the top 100 anime
+
+<p style="text-align:justify;">To go further in our analysis, it is interesting to visualize the top 100 of the most and less popular anime. We can see that using the Gower distance, the data is easily separated into two categories. Indeed, thanks to their differences in terms of `popularity`, we have two clusters showing.</p>
+
+```{r}
+##Plot for the 100 most popular ones and the 100 less popular
+Popular_and_not_clustering100 <- data_Total %>%
+  filter(Popularity %in% 1:100|Popularity %in% 17400:17560)
+Popular_and_not_clustering100$Duration <- as.factor(Popular_and_not_clustering100$Duration)
+
+gower_dist_Popular_and_not100 <- daisy(Popular_and_not_clustering100[,-1], metric = "gower")
+
+sil_width2 <- c(NA)
+
+for(i in 2:10){
+  
+  pam_fit2 <- pam(as.matrix(gower_dist_Popular_and_not100),
+                 diss = TRUE,
+                 k = i)
+  
+  sil_width2[i] <- pam_fit2$silinfo$avg.width
+  
+}
+
+# Plot sihouette width (higher is better)
+plot(1:10, sil_width2,
+     xlab = "Number of clusters",
+     ylab = "Silhouette Width",
+     col= "red",
+main = ("Silhouette width for the number of clusters"))
+lines(1:10, sil_width2)
+```
+
+<p style="text-align:justify;">The repartition is considered great, although we have two errors appearing (Two red points are grouped in the blue section).</p>
+
+```{r}
+sil_width2 <- c(NA)
+
+for(i in 2:2){
+  
+  pam_fit2 <- pam(as.matrix(gower_dist_Popular_and_not100),
+                 diss = TRUE,
+                 k = i)
+  
+  sil_width2[i] <- pam_fit$silinfo$avg.width
+  
+}
+tsne_obj2 <- Rtsne(as.matrix(gower_dist_Popular_and_not100), is_distance = TRUE)
+
+tsne_data2 <- tsne_obj2$Y %>%
+  data.frame() %>%
+  setNames(c("X", "Y")) %>%
+  mutate(cluster = factor(pam_fit2$clustering),
+         name = Popular_and_not_clustering100$MAL_ID)
+
+
+ggplot(aes(x = X, y = Y), data = tsne_data2) +
+  geom_point(aes(color = cluster)) +
+  ggtitle("Clustering the 100 most and the 100 less popular anime")
+```
+
+### Dendrogram
+
+<p style="text-align:justify;">This is certainly the part of our cluster analysis where we can obtain valuable information. A dendrogram for the 20th most popular anime can help us to picture some recommendations due to the differences between all of them. We did this analysis with the 20 most popular ones, and the repartition of the anime, which is subjective, according to our perception and knowledge, is quite reliable.</p> 
+
+```{r,out.width="110%"}
+##Dendogram for the 20 most popular ones
+data_Total_w_Name <- data %>% select(-Licensors, -Year, -Saison) %>% na.omit() %>%
+  filter(Popularity %in% 1:31)
+  
+Popular_clustering <- data_Total %>%
+  filter(Popularity %in% 1:31)
+
+Popular_clustering$Duration <- as.factor(Popular_clustering$Duration)
+
+gower_dist3 <- daisy(Popular_clustering[,-1], metric = "gower")
+cls <- hclust(gower_dist3)
+
+
+cls$labels<-c("Naruto","One Piece", "Death Note","Code Geass","Naruto: Shippuuden","Toradora!", "Fullmetal Alchemist", "Angel Beats!", "Steins;Gate", "Blue Exorcist", "The Future Diary", "Hunter x Hunter", "Sword Art Online", "Shingeki no Kyojin", "No Game No Life", "Noragami", "Sword Art Online II", "Akame ga Kill!", "Tokyo Ghoul", "Your Lie in April", "Nanatsu no Taizai","Shingeki no Kyojin S2","A Silent Voice","One Punch Man","ERASED","Re:Zero","My Hero Academia","Your Name.", "My Hero Academia S2", "My Hero Academia S3", "Demon Slayer")
+              
+
+
+par(mar=c(6,6,6,6))
+as.dendrogram(cls) %>% 
+  set("labels_cex", 0.65) %>%
+  set("leaves_pch", 19)  %>% 
+  set("leaves_cex", 0.7) %>% 
+  set("leaves_col", "skyblue") %>% 
+  set("branches_k_color", value = c("darkblue", "red", "seagreen4", "chocolate2"), k = 4) %>%
+  plot(main="Dendrogram for the 20th most popular anime")
+
+```
+
+<p style="text-align:justify;">To better understand this output, we can say that the more the cluster is down, the more the anime are comparable and similar with their neighboring leaves.</p>
+
+<p style="text-align:justify;">A Silent Voice, Steins:Gate and Your Name (the blue section) are isolated, and we can be satisfied with this because Silent Voice and Your Name are two very romantic films, and the others are anime series. Steins gate could be a possible error because it should be more near the Re:Zero anime if we compare subjectively.</p>
+
+<p style="text-align:justify;">We can accept this dendrogram thanks to the season of the same anime reunited and for subjective opinions. For example, Tokyo Ghoul and Shingeki no Kyojin are comparable thanks to their gender, also for HunterxHunter and Naruto, because they have approximatively the same fanbase and gender.</p>

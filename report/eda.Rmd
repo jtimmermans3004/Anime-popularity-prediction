@@ -1,0 +1,364 @@
+---
+title: "Anime Recommendation"
+output:
+  html_document:
+    always_allow_html: yes
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+    toc_collapsed: yes
+    toc_depth: 4
+    theme: lumen
+    code_folding: hide
+    lof_float: yes
+    fig_caption: yes
+    fig_width: 7
+    fig_height: 6
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+# Exploratory Data Analysis
+
+<p style="text-align:justify;">In this section, we will conduct the Exploratory Data Analysis which will give us a first overview of the data. It is important to critically explore the data and check for the underlying distributions for each variable before fitting different models. We will first start by carrying out univariate analysis followed by performing multivariate analysis. </p>
+
+## Univariate Analysis
+
+<p style="text-align:justify;">Some interesting variables will be graphically represented separately.</p>
+
+### Gender
+
+<p style="text-align:justify;">`Gender` is a nominal feature with 21 levels. We can note in the graph below that `action` is the most represented genre across the dataset. In second place is `comedy`.</p>
+
+```{r}
+data %>% ggplot(aes(x = Gender)) +
+  geom_bar(aes(fill = Gender)) +
+  xlab("Gender") +
+  ylab("number of observations") +
+  ggtitle("Number of observations by gender") +
+  theme(legend.position="none") + coord_flip() +
+  theme(axis.text.x = element_text(size=8, angle=0))
+```
+
+### Type
+
+<p style="text-align:justify;">The type is a nominal feature with 7 different levels. In this variable, the type of anime is represented. As opposed to the `genre`, we want to know if the anime is broadcast or represented in `TV` or `music` form, for example. The largest anime type in the database is `TV`. Then we have `OVA` (Original Video Animation) and `movie`.</p>
+
+```{r}
+ggplot(data, aes(x = Type)) +
+  geom_bar(aes(fill = Type)) +
+  xlab("Type") +
+  ylab("number of observations") +
+  ggtitle("Number of observations by type") +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(size=10, angle=0))
+```
+
+### Episodes
+
+<p style="text-align:justify;"> The treemap below shows the 15 most-represented anime. What is interesting to observe is that most animes have only one episode. This might because these anime are movies. We also notice that many animes have 20 episodes or 78 episodes.</p>
+
+```{r, warning=FALSE, message=FALSE, error=FALSE}
+group <- c("Only one episode","20 episodes","78 episodes", "28 episodes", "107 episodes", "97 episodes", "1000 episodes", "129 episodes", "156 episodes", "92 episodes","148 episodes", "2 episodes", "95 episodes", "143 episodes", "146 episodes")
+
+Episodes <- c(8381,1445,1368,769,631,619,516,451,340,258,237,206,200,170,119)
+
+datatreemap <- data.frame(group,Episodes)
+
+ggplot(datatreemap, aes(area = Episodes, fill = group,
+               label = group, subgroup = group)) +
+  geom_treemap() +
+  geom_treemap_subgroup_border(colour = "black", size = 5) +
+  geom_treemap_subgroup_text(place = "centre", grow = TRUE,
+                             alpha = 0.25, colour = "black",
+                             fontface = "italic") +
+  geom_treemap_text(colour = "black", place = "centre",
+                    size = 15, grow = TRUE) + theme(legend.position = "none")
+
+
+```
+
+<p style="text-align:justify;">In the histogram below, we can see that on average an anime has seventy-one episodes. This is represented by the red line in the histogram. Anime with episodes between one and twenty are the most frequent in the dataset. One outlier can be observed, some animes have thousands of episodes.</p>
+
+```{r}
+
+#spread
+ggplot(data, mapping = aes(x = Episodes)) +
+  geom_histogram(color = "white", fill = "lightsteelblue2")   + geom_vline(
+    aes(xintercept = mean(Episodes)),
+    color = "red",
+    linetype = "dashed",
+    size = 1
+  ) +
+  labs(title = "Positively Skewed Histogram",
+       subtitle = "Distribution of the number of Episodes") +
+  theme(legend.position = "none") 
+
+```
+
+### Producers
+
+<p style="text-align:justify;">`Producers` is a nominal feature with twenty levels. We notice that NHK and TV Tokyo are the `producers` who hold most anime. This is quite normal since NHK WORLD-JAPAN is a Japanese company that manages the Japanese public service radio and television stations. This company is the only Japanese public broadcasting group. Nevertheless, the database holds many so-called "others" and "unknown" anime producers that are not of interest for this analysis.</p>
+
+```{r}
+data %>% 
+  filter(Producers !="Unknown") %>% 
+  filter(Producers !="others") %>% 
+ggplot(aes(x = Producers)) +
+  geom_bar(aes(fill = Producers)) +
+  xlab("Producers") +
+  ylab("number of observations") +
+  ggtitle("Number of observations by producers") +
+  theme(legend.position="none") + coord_flip() +
+  theme(axis.text.x = element_text(size=10, angle=0))
+```
+
+### Studios
+
+<p style="text-align:justify;">The Studios variable is a nominal feature with twenty-two levels. We can see here that Toei Animation is the studio that produces the most anime. This studio is the studio that made the famous anime with many episodes called <One Piece>.</p>
+
+```{r}
+data %>% 
+  filter(Studios !="Unknown") %>%
+  filter(Studios !="others") %>% 
+ggplot(aes(x = Studios)) +
+  geom_bar(aes(fill = Studios)) +
+  xlab("Studios") +
+  ylab("number of observations") +
+  ggtitle("Number of observations by studios") +
+  theme(legend.position="none") + coord_flip() +
+  theme(axis.text.x = element_text(size=10, angle=0))
+```
+
+### Source
+
+<p style="text-align:justify;">The nominal feature Source has sixteen levels that define the source from which the anime was inspired. We notice that most of the anime is original. This means that it was not inspired by a book, for example. Then, we see in second place that the anime is inspired by manga.</p>
+
+```{r}
+data %>% 
+  filter(Source !="Unknown") %>%
+ggplot(aes(x = Source)) +
+  geom_bar(aes(fill = Source)) +
+  xlab("Source") +
+  ylab("number of observations") +
+  ggtitle("Number of observations of the source") +
+  theme(legend.position="none") + coord_flip() +
+  theme(axis.text.x = element_text(size=10, angle=0))
+```
+
+### Duration
+
+<p style="text-align:justify;">The `duration` of an anime episode is mostly less than 30 minutes.</p>
+
+```{r}
+data %>% 
+  dplyr::filter(Duration_C !="NA") %>%
+ggplot(aes(x = Duration_C)) +
+  geom_bar(aes(fill = Duration_C)) +
+  xlab("Duration") +
+  ylab("number of observations") +
+  ggtitle("Number of observations of the duration of the anime") +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(size=8, angle=0))
+```
+
+<p style="text-align:justify;">The histogram shows that on average, the `duration` of an anime episode is twenty-five minutes. Most anime have a `duration` below twenty-five minutes. We can also notice that there is a lot of variances in the `duration` of the episodes.</p>
+
+
+```{r, warning=FALSE}
+#spread
+ggplot(data, mapping = aes(x = Duration)) +
+  geom_histogram(color = "white", fill = "lightsteelblue2") + geom_vline(
+    aes(xintercept = mean(data_Total$Duration)),
+    color = "red",
+    linetype = "dashed",
+    size = 1
+  ) +
+  labs(title = "Right Skewed Histogram",
+       subtitle = "Distribution of the number of Episodes") +
+  theme(legend.position = "none")
+```
+
+### Rating
+
+<p style="text-align:justify;">The `rating` is a nominal feature that defines for whom the anime is addressed. It defines, in particular, the age of a person recommended to watch the anime. Here is what these letters correspond to:</p>
+
+- `G`: General Audiences (All ages admitted)
+- `PG`: Parental Guidance Suggested
+- `PG-13`: Parents Strongly Cautioned
+- `R`, `R+` and `Rx` : limited because of inappropriate language or pornographic anime
+
+We observe here that there is a majority of anime are produced for adults.
+
+```{r}
+data %>% 
+  filter(Rating !="Unknown") %>%
+ggplot(aes(x = Rating)) +
+  geom_bar(aes(fill = Rating)) +
+  xlab("Type") +
+  ylab("number of observations") +
+  ggtitle("Number of observations of Rating") +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(size=8, angle=0))
+```
+
+### POPULARITY
+
+<p style="text-align:justify;">The `Popularity is the numerical variable we want to predict for our analysis. In the following histogram of `Popularity` we can observe a left-skewed histogram, a distribution skewed to the left said to be negatively skewed. This type of distribution has a large number of occurrences in the upper-value cells (right side) and few in the lower value cells (left side).</p>
+
+```{r, warning=FALSE}
+#spread
+ggplot(data, mapping = aes(x = Popularity)) +
+  geom_histogram(color = "white", fill = "lightsteelblue2")  + scale_x_log10()  +
+  labs(title = "Left Skewed Histogram",
+       subtitle = "Log scaled distribution in the number of Popularity") +
+  theme(legend.position="none") 
+```
+
+<p style="text-align:justify;">We can also identify the skewness of our data by observing the shape of the box plot. The box plot is symmetric it means that our data follows a normal distribution. Indeed, the median is in the middle of the box, and the whiskers are about the same on both sides of the box, there are no outliers. Furthermore, data satisfying normal distribution is beneficial for model building. In fact, linear regression models for example are explicitly calculated from the assumption that the distribution is a bivariate or multivariate normal.</p>
+
+```{r}
+#Boxplot
+data %>% ggplot( mapping = aes(x =Popularity)) +
+  geom_boxplot() + theme_minimal() +
+  labs(title = "Symmetric boxplot of the popularity") +
+  theme(plot.title = element_text(
+    size = 12,
+    color = "black",
+    hjust = 0.5,
+    lineheight = 1.2
+  ))
+```
+
+## Multivariate analysis
+
+<p style="text-align:justify;">After performing the univariate analysis and observing the variables in the database one by one, we will now perform the multivariate analysis. The univariate analysis allowed us to see if there could be relationships between the variables in the database. Thus, we will test graphically the links between certain variables.</p>
+
+### Correlation matrix
+
+<p style="text-align:justify;">Here we can see a correlation matrix to summarize the data. Each cell in the table shows the correlation between two variables. The higher the intensity of the color red, the higher the square between the variables, meaning they are positively correlated. `Popularity` is positively correlated to `Studios`, `Producers` and `Source.` It is negatively correlated with `Rating.` Meaning that there is a relation between those features and the `Popularity` of the anime.</p>
+
+```{r}
+#Correlation matrix
+data_corr <- data_factors %>% select(-c(MAL_ID, Duration_C)) %>% na.omit()
+ggcorr(data_corr, method = c("everything", "pearson"))
+```
+
+### Popularity of animes by duration and type
+
+<p style="text-align:justify;">Here we observe that all types of anime whose `duration` is less than thirty minutes are the most successful.</p>
+
+```{r} 
+#type and producers + duration + popularity
+multitype <- data %>% filter(Duration_C !="Unknown")
+multitype <- data %>% filter(Popularity !="Unknown")
+multitype <- data %>% filter(Type !="Unknown")
+multitype %>% 
+  filter(Duration_C !="Unknown")%>%
+ggplot(aes(x=Duration_C, y= Popularity, colour = Duration_C, fill = Type)) + 
+    geom_bar(stat = "identity") +
+    xlab("Duration") +
+  ylab("Popularity") +
+  ggtitle("Popularity of animes by their duration and type") + coord_flip() +
+      facet_wrap(~ Type) +
+ theme(axis.text.x = element_blank()) +
+  theme(legend.position="none")
+```
+
+### Popularity of anime by ratings
+
+<p style="text-align:justify;">Here, it is interesting to observe that the most popular animes are the ones for all ages (`Rating G`), followed by `PG-13` rated anime (unsuitable for children under thirteen). The `R` rated anime (restricted under 17) is the one having the lowest `popularity.`</p>
+
+```{r}
+data %>% ggplot(aes(x = Rating, y = Popularity,colour = Rating, fill = Rating))  + 
+    geom_bar(stat = "identity") +
+    xlab("Rating") +
+  ylab("Popularity") +
+  ggtitle("Popularity of animes by Rating") + coord_flip()+
+ theme(axis.text.x = element_blank()) +
+  theme(legend.position="none")
+```
+
+### Popularity of anime by Genre
+
+<p style="text-align:justify;">This graph reveals that `popularity` varies greatly by genre. The most popular anime are `comedies` or `action` anime. The anime of `genre` Harem, Ecchi or Military have a very low `popularity.`</p>
+
+```{r}
+data %>% ggplot(aes(x = Gender, y = Popularity, colour = Gender, fill = Gender))  + 
+    geom_bar(stat = "identity") +
+    xlab("Genre") +
+  ylab("Popularity") +
+  ggtitle("Popularity of animes by genre") + coord_flip()+
+ theme(axis.text.x = element_blank()) +
+  theme(legend.position="none")
+```
+
+### Popularity of anime by Type
+
+<p style="text-align:justify;">We see a difference in `popularity` depending on the type of anime. The most popular anime are `OVA`, `TV` and `movie` anime. The `Special` type of anime have a very low `popularity`. In addition, very few anime have an `Unknown` Type.</p>
+
+```{r}
+data %>% ggplot(aes(x = Type, y = Popularity, colour = Type, fill = Type))  + 
+    geom_bar(stat = "identity") +
+    xlab("Type") +
+  ylab("Popularity") +
+  ggtitle("Popularity of animes by Type") + coord_flip()+
+ theme(axis.text.x = element_blank()) +
+  theme(legend.position="none")
+```
+
+### Mean popularity by Studio
+
+<p style="text-align:justify;">We see a difference in `popularity` depending on the `Studio` of the anime. The most popular anime are produced by Unknown, DLE, Nippon Animation and Shin_Ei_Animation `Studios`. The anime produced by the Bones `Studio` has the lowest `popularity`.</p>
+
+```{r}
+Mean_Popularity_Studios <- data %>% 
+  group_by(Studios)%>%
+  summarise(m= mean(Popularity))
+
+ggplot(data=Mean_Popularity_Studios, aes(x=Studios, y=m)) +
+  geom_bar(stat="identity", aes(fill = Studios)) +
+  xlab("Studios") +
+  ylab("number of observations") +
+  ggtitle("Number of observations by studios") +
+  theme(legend.position="none") + coord_flip() +
+  theme(axis.text.x = element_text(size=10, angle=0))
+```
+
+### Mean popularity by Producer
+
+The following graph shows the mean `popularity` of the anime by `producer.`  Animes produced by NHK and Sanrio `producers` have the highest mean `popularity`, in contrast, Aniplex and Genco's animes have the lowest mean `popularity.`
+
+```{r}
+Mean_Popularity_Producers <- data %>% 
+  group_by(Producers)%>%
+  summarise(m= mean(Popularity))
+
+ggplot(data=Mean_Popularity_Producers, aes(x=Producers, y=m)) +
+  geom_bar(stat="identity", aes(fill = Producers)) +
+  xlab("Studios") +
+  ylab("Mean popularity") +
+  ggtitle("Popularity mean by Producer") +
+  theme(legend.position="none") + coord_flip() +
+  theme(axis.text.x = element_text(size=10, angle=0))
+```
+
+### Distribution of the popularity and source 
+  
+<p style="text-align:justify;">We can observe in this graph that animes are less popular when they are in the form of Radio or digital manga. If the source of an anime is Original, Manga or 4-Koma manga, for instance, the `popularity is much higher.</p>
+
+```{r}
+data %>% ggplot() + geom_bin2d(aes(x=Source, y=Popularity)) + labs(title = "Distribution of the Popularity and Source of the Anime") + theme_classic() + 
+  theme(axis.text.x = element_text(angle = 25, size = 8),
+        plot.title = element_text(size = 12,
+                                  color = "black",
+                                  hjust = 0.2,
+                                  lineheight = 0.2))
+```
+
+```{r, echo=FALSE, message=FALSE}
+data_Total <- data_Total %>% select(-Duration_C)
+data_factors <- data_factors %>% select(-Duration_C)
+```
+

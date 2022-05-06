@@ -1,0 +1,67 @@
+---
+title: "Anime Recommendation"
+output:
+  html_document:
+    always_allow_html: yes
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+    toc_collapsed: yes
+    toc_depth: 4
+    theme: lumen
+    code_folding: hide
+    lof_float: yes
+    fig_caption: yes
+    fig_width: 7
+    fig_height: 6
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+# Introduction
+
+## Source
+
+The Dataset was sourced from Kaggle [Anime dataset](https://www.kaggle.com/hernan4444/anime-recommendation-database-2020?select=watching_status.csv).
+
+
+## What is an anime?
+
+<p style="text-align:justify;">An anime is a hand-drawn or computer animation that originated from Japan. Anime describes all animated work, regardless of the style or origin. The anime industry consists of over 430 production companies, including major studios like Studio Ghibli, Sunrise, and Toei Animation. As of 2016, Japanese anime accounted for 60% of the world's animated television shows.</p>
+
+
+## Motivation
+
+<p style="text-align:justify;">As an Anime Licensor, we buy the rights to sell and stream anime. The licenses have a fixed duration, when an anime license expires, there are some cases where licenses are not renewed for one reason or another. For example, if a show is not popular enough to make a profit, some companies may just let the license expire since there is not enough demand for it.</p>
+
+__Goal of the project__
+
+<p style="text-align:justify;">Our project aims to predict if it's possible, the popularity of an anime according to several features we have access to. The features we will use are the `genre`, `type`, `number of episodes`, `studio`, `source`, `duration`, and `rating` of the anime. The `popularity` is an important feature for us as a licensor. Indeed, it represents the position of each anime based on the number of users who added the anime to their list. In other words, an anime with high `popularity` has more success, are more watched and attract more people than anime with a low popularity.</p>
+
+## Data
+
+<p style="text-align:justify;">To predict the `popularity` we used the anime dataset. It contains thirty-five variables with information about 17.562 `anime` observations and the preference from 325.772 users. It includes the anime's status (`dropped`, `complete`, `plan to watch`, `currently watching`). `ratings` is given by users and information about the anime like `genre`, `studios`, and `type`.</p>
+
+For our project we will use the following variables:
+
+- `MAL_ID`: Id of the anime
+
+- `Name`: Name of the anime
+
+- `Genders`: Genre of the anime, categorical feature (nominal) with 32 levels.
+
+- `Type`: Types of anime (TV, movie...), categorical feature with 7 levels.
+
+- `Episodes`: Number of chapters, numerical feature.
+
+- `Producers`: Producer of the anime, categorical feature with 71 levels.
+
+- `Studios`: Studios, categorical feature with 642 levels.
+
+- `Source`: Sources of anime (Manga, Light novel, Book...), categorical feature with 16 levels.
+
+- `Duration`: Duration of the anime per episode, numerical feature.
+
+- `Rating`: Age rate of the anime, categorical feature with 7 levels.
+

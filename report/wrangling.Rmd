@@ -1,0 +1,162 @@
+---
+title: "Anime Recommendation"
+output:
+  html_document:
+    always_allow_html: yes
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+    toc_collapsed: yes
+    toc_depth: 4
+    theme: lumen
+    code_folding: hide
+    lof_float: yes
+    fig_caption: yes
+    fig_width: 7
+    fig_height: 6
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+# Data Wrangling
+
+This section focuses on data wrangling, it is the process of transforming data from one "raw" data form into another format with the intent of making it more appropriate and valuable for our analysis. The goal of data wrangling is to assure quality and useful data. As we saw in the previous section, some categorical variables have plenty of levels, that's why levels with very low frequencies are merged into a common level, such as "others", as they are not of specific interest for our analysis.
+
+Indeed, all the levels for which there are less than 100 anime are merged into the level "others". For example, in the original dataset, the variable `Studios` had 642 levels, however, some `studios` have only one anime, these studios are not of specific interest and are grouped together.
+
+The following table groups together all the important variables that we will use during our project.
+
+```{r, echo = FALSE, message = FALSE, warning=FALSE}
+source(here::here("script/setup.R"))
+```
+
+```{r, echo = FALSE, message = FALSE}
+data <- read.csv(here::here("data/anime.csv"))
+```
+
+```{r, warning=FALSE, message=FALSE, error=FALSE}
+##Data Wranging, separating colomns to facilitate the analysis and keep most important information about the animes
+
+data <- separate(data, Rating, c("Rating",NA), sep="-") %>% select(MAL_ID, Name, Genders, Type, Episodes, Producers, Licensors, Studios, Source, Duration, Rating, Premiered, Popularity)
+
+data <- data %>% separate(Producers, c("Producers", NA), sep=",")
+data <- data %>% separate(Licensors, c("Licensors", NA), sep=",")
+data <- data %>% separate(Genders, c("Gender", NA), sep=",")
+data <-  data %>% separate(Studios, c("Studios", NA), sep=",")
+data <-  data %>% separate(Studios, c("Studios", NA), sep=",")
+data <- data %>% separate(Premiered, c("Saison", "Year"), sep = " (?=[^ ]+$)")
+
+
+```
+
+```{r}
+## Count the levels of featues, to keep the important ones
+count_producers <- data  %>%
+  select(Producers) %>%
+  group_by(Producers) %>%
+  summarise(n=n()) %>%
+  arrange(desc(n))
+
+count_licensors <- data  %>%
+  select(Licensors) %>%
+  group_by(Licensors) %>%
+  summarise(n=n()) %>%
+  arrange(desc(n))
+
+count_Studios <- data  %>%
+  select(Studios) %>%
+  group_by(Studios) %>%
+  summarise(n=n()) %>%
+  arrange(desc(n))
+
+number_episodes <- data %>% group_by(Episodes) %>% summarise(n=n()) %>%
+  arrange(desc(n))
+
+number_rating <- data %>% group_by(Rating) %>% summarise(n=n()) %>%
+  arrange(desc(n))
+
+#to differnciate PG children and 13 years 
+data[data == "PG"] <- "PG-13"
+
+count_Genders <- data  %>%
+  select(Gender) %>%
+  group_by(Gender) %>%
+  summarise(n=n()) %>%
+  arrange(desc(n))
+```
+
+```{r}
+#take only studios having more than 100 animes and create category "others"
+
+delete_studios <- count_Studios %>% filter(n<=100)
+
+data$Studios <- ifelse(data$Studios %in% delete_studios$Studios,"others",data$Studios)
+
+#take only first producers with more than 100 animes and create category "others"
+delete_producers <- count_producers %>% filter(n<=100)
+data$Producers <- ifelse(data$Producers %in% delete_producers$Producers,"others",data$Producers)
+
+#take only first genders having more than 100 animes and create category "others"
+delete_genders <- count_Genders %>% filter(n<=100)
+data$Gender <- ifelse(data$Gender %in% delete_genders$Gender,"others",data$Gender)
+
+#Make factors for categorical features
+data$Year <- as.numeric(data$Year)
+
+for (i in 1:ncol(data)){
+  if (class(data[,i])=="character"){
+    data[,i] <- factor(data[,i])
+  }
+}
+
+##Episode
+#Put an extreme value for the episodes that are Unknown because there are not finished --> important information to keep
+data$Episodes <- ifelse(data$Episodes == "Unknown",1000 ,data$Episodes)
+data$Episodes <- as.numeric(data$Episodes)
+data$Popularity <- as.numeric(data$Popularity)
+```
+
+```{r}
+#Convert 2hr into 2hr.00min
+data <- data%>%
+  mutate(Duration= ifelse(Duration == "2 hr.","2 hr. 00 min",
+                          ifelse(Duration == "1 hr.","1 hr. 00 min", paste0(Duration))))
+
+#Convert time in min to have numerical feature
+library(stringr)
+data$Duration  <- sapply(str_extract_all(data$Duration , "\\d+"), function(x) {
+              x1 <- as.numeric(x)
+          if(length(x1) > 1) x1[1]*60 + x1[2] else x1[1] })
+
+data$Duration<-as.integer(data$Duration)
+```
+
+```{r}
+#mutate a new column to categorize duration
+data <- data %>% mutate(Duration_C = ifelse(Duration< 30, "Less than 30min", ifelse(Duration>= 30 & Duration < 60, "Less than 1h",ifelse(Duration>= 60 & Duration < 120,"more than 1h","more than 2h"))))%>%
+  relocate(Duration_C,.after=Duration)
+
+data$Duration_C <- factor(data$Duration_C, levels = c("Less than 30min", "Less than 1h", "more than 1h","more than 2h"))
+```
+
+```{r, warning=FALSE}
+#Final dataset with only relevant features for our project
+
+data_Total <- data %>% select(-Licensors, -Name, -Year, -Saison) %>% na.omit()
+
+#Create factors for each categorical variable (with dummies more than 1550 variables)
+data_Clean <- data.matrix(data_Total[sapply(data_Total, is.factor)])
+data.num <- data_Total %>% select(where(is.numeric))
+
+## Merge everything in our final dataset
+
+data_factors <- data.frame(data.num, data_Clean) %>% na.omit()
+#view(dfSummary(data, style="grid",plain.ascii = FALSE, tmp.img.dir = "/tmp")) #see which factor for which level
+
+datatable(data_Total,
+          caption = 'Table 1: Anime dataset',
+          options = list(pageLength = 5),
+          rownames=FALSE)
+```
+

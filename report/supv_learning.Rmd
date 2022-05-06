@@ -1,0 +1,696 @@
+---
+title: "Anime Recommendation"
+output:
+  html_document:
+    always_allow_html: yes
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+    toc_collapsed: yes
+    toc_depth: 4
+    theme: lumen
+    code_folding: hide
+    lof_float: yes
+    fig_caption: yes
+    fig_width: 7
+    fig_height: 6
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+# Supervised learning analysis
+
+## Linear Regression Model
+
+<p style="text-align:justify;">The first model implemented to predict the `popularity` of an anime is a linear regression. The advantage of this method is that it is simple to apply, and the coefficients can be interpreted.</p>
+
+<p style="text-align:justify;">First, the linear regression is fitted using the 8 features listed above (`Gender`, `Type`, `Episodes`, `Producers`, `Studios`, `Source`, `Duration` and `Rating`). In order to have the simplest model explaining the best our outcome variable `Popularity`, we use the stepwise variable selection (backward selection).</p>
+
+
+```{r,include=FALSE, eval=TRUE}
+#Split data in 2 sets
+set.seed(234)
+index <- sample(x=c(1,2), size=nrow(data_Total), 
+                replace=TRUE, prob=c(0.75,0.25)) # 1==training set, 2==test set
+
+dat.tr <- data_Total[index==1,]
+dat.te <- data_Total[index==2,]
+
+#Linear regression with all predictors
+mod.lm <- lm(Popularity~Gender + Type + Episodes + Producers + 
+    Studios + Source + Duration + Rating, data=dat.tr)
+
+# Variable selection AIC
+mod.lm.sel <- step(mod.lm) # store the final model into mod.lm.sel, keep all the predictors based on AIC
+summary(mod.lm.sel)
+```
+
+<p style="text-align:justify;">The final model contains 8 features. In terms of interpretation of the coefficients, the `popularity` increases in average by 196 when switching the `gender` from `action` (reference level) to `adventure`. In addition, the `popularity` increases on average by 1333 when the type switches from `movie` to `music`, etc.</p>
+
+<p style="text-align:justify;">To avoid overfitting, the database is split using 5-fold cross-validation. The choice was made for CV because the dataset contains enough observations and the scores obtained for the predictions were equal to bootstrap</p>
+
+```{r, include=FALSE, eval=TRUE}
+# Train linear regression using CV
+trctrl <- trainControl(method = "cv", number=5)
+
+set.seed(346)
+anime.cv.reg <- train(Popularity ~ Gender + Type + Episodes + Producers + 
+    Studios + Source + Duration + Rating, data = dat.tr, method = "lm", trControl=trctrl)
+anime.cv.reg$finalModel
+```
+
+```{r}
+anime.cv.reg
+```
+
+<p style="text-align:justify;">The final model has 89 coefficients (including the levels of each feature). As we can see on the R output, the model has an RMSE of 2808 and R<sup>2</sup> of 69%, which are relatively high scores. Moreover, the coefficients have changed slightly by using CV instead of separating the data using a simple test set (25% of the data) and training set (75% of the data). By looking at the coefficients, the average change in `Popularity` when a feature changes from the reference level to any other level can be estimated. Indeed, when switching from `rating G` (all ages) to rating `PG-13` (PG-13 for teens 13 or older), the `popularity` of an anime decreases by 3269,75. Due to the quantity of coefficients, they are not all presented in the report, but they can be analyzed in details in the code.</p>
+
+### Variable importance
+
+<p style="text-align:justify;">The relationship between each predictor and the `popularity` can be evaluated to estimate the contribution of each variable to the model. In the case of linear regression, the absolute value of the t-statistic for each model parameter is used.</p>
+
+```{r, included=FALSE}
+#Variable importance
+variable_importance <- varImp(anime.cv.reg, nonpara = FALSE, scale=TRUE)# absolute value of the t-value for the slope of the predictor is used
+```
+
+```{r}
+#plot of variable importance
+plot(variable_importance, top = 10)#Rating most important predictor
+```
+
+<p style="text-align:justify;">The graph above shows that the level rating `PG-13` contributes the most to the model. Overall, the `Rating` is the most important feature to predict the popularity of an anime.</p>
+
+<p style="text-align:justify;">In fact, after fitting a model without the feature `Rating`, the RMSE increases by 212 and the R<sup>2</sup> decreases by 5%, showing that without the predictor `Rating`, the model performs worse.</p>
+
+```{r, include=FALSE, eval=TRUE}
+#Model without Rating
+anime.cv.reg.2 <- train(Popularity ~ Gender + Type + Episodes + Producers + 
+    Studios + Source + Duration , data = dat.tr, method = "lm", trControl=trctrl)
+
+anime.cv.reg.2
+```
+
+### Predictions with linear regression
+
+<p style="text-align:justify;">The model is evaluated by making predictions on the tests sets using CV.</p>
+
+```{r, warning=FALSE}
+#predictions
+#Warning appears because use too many predictors
+cv.lm.pred <- predict(anime.cv.reg, newdata=dat.te)
+plot(dat.te$Popularity ~ cv.lm.pred, xlab="Prediction", ylab="Observed Popularity", main="Popularity against predicted popularity")
+abline(0,1, col="red") # line showing the obs -- pred agreement
+```
+
+<p style="text-align:justify;">The following graph shows the quality of the model. The predicted values follow the red line, nevertheless, there is still a lot of variances. To measure the performance of the model and to later be able to compare the linear regression model with the regression tree the RMSE, MAE and R<sup>2</sup> are computed on the test and training set.</p>
+
+```{r, include=FALSE, eval=TRUE, warning=FALSE}
+
+#Use bootstrap to compare results
+# Define training control
+train.control <- trainControl(method = "boot", number = 100)
+# Train the model
+anime.boot.reg <- train(Popularity ~ Gender + Type + Episodes + Producers + 
+    Studios + Source + Duration + Rating, data = dat.tr, method = "lm",
+               trControl = train.control)
+# Summarize the results
+
+summary(anime.boot.reg)
+
+#prediction
+#Warning appears because use too many predictors
+boot.lm.pred <- predict(anime.boot.reg, newdata=dat.te)
+plot(dat.te$Popularity ~ boot.lm.pred, xlab="Prediction", ylab="Observed prices")
+abline(0,1, col="red") # line showing the obs -- pred agreement
+
+#Regression with boot
+R2(predict(anime.boot.reg, newdata = dat.te),dat.te$Popularity) #same score as with CV
+
+#Results are the same as with CV, so we keep the first model using CV.
+```
+
+### Performance of the linear regression
+
+<p style="text-align:justify;">The scores computed on the test set are approximately equal to the one on the training set which confirms that there is no sign of overfitting. Moreover, even with CV, the linear regression is performing well: RMSE of 2835 and R<sup>2</sup> of 69%.</p>
+
+```{r, include=FALSE, eval=TRUE}
+#Score Regression with CV
+
+#score test set
+R2.lin.reg <- R2(predict(anime.cv.reg, newdata = dat.te), dat.te$Popularity)
+RMSE.lin.reg <- RMSE(predict(anime.cv.reg, newdata = dat.te), dat.te$Popularity)
+MAE.lin.reg <- MAE(predict(anime.cv.reg, newdata = dat.te), dat.te$Popularity)
+
+#Score tr set
+r2.tr <- R2(predict(anime.cv.reg, newdata = dat.tr),dat.tr$Popularity) #score on tr set ~= score test set
+rmse.tr <- RMSE(predict(anime.cv.reg, newdata = dat.tr),dat.tr$Popularity)# score test set > score tr set 
+mae.tr <- MAE(predict(anime.cv.reg, newdata = dat.tr),dat.tr$Popularity)# score test set > score tr set 
+
+```
+
+```{r}
+#Table of score
+dt.scoreboard.linear.reg <- rbind(
+   data.frame(Model = "Test set Score", RMSE = RMSE.lin.reg, R2=R2.lin.reg, MAE=MAE.lin.reg),
+   data.frame(Model = "Training set Score", RMSE = rmse.tr,R2 =r2.tr, MAE=mae.tr))
+
+kable(dt.scoreboard.linear.reg, caption="Linear regression scores", digits=10) %>% kable_styling()
+```
+
+## Regression Tree Model
+
+<p style="text-align:justify;">The second model implemented to predict the `popularity` is a regression tree. The model is great for predictions, very intuitive, easy to explain and interpret.</p>
+
+### Regression tree with anova
+
+<p style="text-align:justify;">The regression tree is build by splitting `data_Total` (n = 13607) into `dt.tr` (80%, n = 13607) and `dt.te` (20%, n = 3400). We proceed as a first step to build a full tree, subsequently, perform 10-fold cross-validation to help select the optimal cost complexity `cp`.</p>
+
+```{r classification tree}
+#Splitting the data
+set.seed(12345) #for reproducibility
+index.tr <- createDataPartition(y = data_Total$Popularity, p = 0.8, list = FALSE)
+dt.tr <- data_Total[index.tr,]
+dt.te <- data_Total[-index.tr,]
+```
+
+```{r}
+#Model implementation
+set.seed(1234)
+dt.rt.full <- rpart(Popularity ~ Gender + Type + Episodes + Producers + 
+                 Studios + Source + Duration + Rating, data=dt.tr,  method = "anova")
+```
+
+```{r, include=FALSE}
+#Tree before pruning
+rpart.plot(dt.rt.full,  yesno = TRUE)
+#Interpretation: The unpruned tree diagram has the first split at `Rating` = [PG-13,R ,R+ ,Rx] vs [G, PG, Unknown], meaning that the Rating variable gives the most information about the popularity of the anime.
+```
+
+```{r}
+#candidate cp values, to decide how to prune the tree.
+printcp(dt.rt.full)
+```
+
+<p style="text-align:justify;">There are 8 possible cp values in this model. The 1-SE rule is used to cut the branches that do not participate enough in the prediction quality. We take the tree with the lowest xerror, add to this the xstd, and cut at the simplest tree whose xerror is lower than this bound. In action, xerror + xstd = 0.4 + 0.005 = 0.405. Thus, the tree with three splits (xerror = 0.4 and cp=0.03) should be used.</p>
+
+```{r, include=FALSE}
+#Compute SSE
+data.frame(pred = predict(dt.rt.full, newdata = dt.tr)) %>%
+   mutate(obs = dt.tr$Popularity,
+          sq_err = (obs - pred)^2) %>%
+   summarise(sse = sum(sq_err))
+
+# Interpretation: The root node SSE is 349024947151, so its rel error is 349024947151/349024947151 = 1.0. That means the absolute error of the full tree (at CP = 0.01) is 0.368511715 * 349024947151 = 128619781754 it can verified by calculating the SSE of the model predicted values.
+
+```
+
+```{r, include=FALSE}
+#Plot CP
+plotcp(dt.rt.full, upper = "splits")
+
+# Interpretation: The simplest tree is the one with CP = 0.0331 (3 splits). Fortunately, `plotcp()` presents a nice graphical representation of the relationship between `xerror` and `cp`. The dashed line is set at the minimum `xerror` + `xstd`. The top axis shows the number of splits in the tree. The smallest relative error is at CP = 0.011 (7 splits), but the maximum CP below the dashed line (one standard deviation above the minimum error) is at CP = 0.047 (3 splits).
+```
+
+Here is the pruned tree:
+
+```{r}
+dt.rt.cart <- prune(
+   dt.rt.full,
+   cp = dt.rt.full$cptable[dt.rt.full$cptable[, 2] == 3, "CP"]
+)
+#rpart.plot(dt.rt.cart, yesno = TRUE) too small representation to be interpretable
+
+prp(dt.rt.cart,faclen=2)
+```
+
+<p style="text-align:justify;">This tree has 4 final nodes, it is simpler and shows that the most important variables are Rating and Studios. The first node is at `Rating` = [PG-13, R, R+ , Rx]. The tree can be interpreted as follows: if the `rating` of the anime is PG-13,R, R+ or Rx, we go to the left, if the `Studio` is AP (A1-Pictures) for example, go left, the predicted `popularity` of the anime is 4663.</p>
+
+```{r}
+# identify the most important variables with the following graph. 
+dt.rt.cart$variable.importance %>% 
+   data.frame() %>%
+   rownames_to_column(var = "Feature") %>%
+   rename(Overall = '.') %>%
+   ggplot(aes(x = fct_reorder(Feature, Overall), y = Overall)) +
+   geom_pointrange(aes(ymin = 0, ymax = Overall), color = "cadetblue", size = .3) +
+   theme_minimal() +
+   coord_flip() +
+   labs(x = "", y = "", title = "Variable Importance with Simple Regression")
+```
+
+<p style="text-align:justify;">The most important indicators of `Popularity` are `Rating`, followed by `Studios`, `Gender` and `source`. Only the two most important features appear in the pruned tree.</p>
+
+### Predictions with regression tree
+
+<p style="text-align:justify;">The last step is to make predictions on the test set. The pruning process leads to an average prediction error (RMSE) of 3380 and MAE of 2742 on the test set (the RMSE punishes large errors more harshly). It is not too bad considering the standard deviation of `Popularity` is 5069. The scores on the training set are approximately equal to the one on the test set, showing that there is not overfitting.</p>
+
+```{r, include=FALSE}
+#Compute RMSE
+dt.preds.cart <- predict(dt.rt.cart, dt.te, type = "vector") #computed on test set
+dt.preds.cart.tr <- predict(dt.rt.cart, dt.tr, type = "vector") #computed on tr set
+
+#RMSE and MAE on test set
+dt.rmse.cart <- RMSE(
+  pred = dt.preds.cart,
+  obs = dt.te$Popularity
+)
+
+dt.r2.cart <-R2(pred = dt.preds.cart,obs = dt.te$Popularity)
+dt.MAE.cart <- MAE(pred = dt.preds.cart,obs = dt.te$Popularity)
+
+##RMSE and MAE on training set
+dt.rmse.cart.tr <- RMSE(pred = dt.preds.cart.tr,
+                        obs = dt.tr$Popularity)
+
+dt.MAE.cart.tr <-MAE(pred = dt.preds.cart.tr,obs = dt.tr$Popularity)
+dt.R2.cart.tr <- R2(pred = dt.preds.cart.tr,obs = dt.tr$Popularity)
+```
+
+```{r}
+#Table of score
+dt.scoreboard.tree1 <- rbind(
+   data.frame(Model = "Test set Score", RMSE = dt.rmse.cart, R2=dt.r2.cart, MAE=dt.MAE.cart),
+   data.frame(Model = "Training set Score", RMSE = dt.rmse.cart.tr,R2 =dt.R2.cart.tr, MAE=dt.MAE.cart.tr))
+
+kable(dt.scoreboard.tree1, caption="Regression tree scores", digits=2) %>% kable_styling()
+
+```
+
+<p style="text-align:justify;">The graph represents the predicted against the observed popularity using the final pruned tree, the 4 possible predicted values do a decent job of binning the observations. The model only predicts a low popularity value of 4663, a high popularity of 14000 and 2 different medium popularity values (9392 and 9774). This tree simplifies a lot our outcome variable popularity,unlike the linear regression which predicts a different value for each anime according to its variables.</p>
+
+```{r}
+#The following plot shows predicted vs actual values.
+data.frame(Predicted = dt.preds.cart, Actual = dt.te$Popularity) %>%
+   ggplot(aes(x = Actual, y = Predicted)) +
+   geom_point(alpha = 0.6, color = "cadetblue") +
+   geom_smooth() +
+   geom_abline(intercept = 0, slope = 1, linetype = 2) +
+   labs(title = "Carseats CART, Predicted vs Actual")
+
+```
+
+### Regression tree with Caret Package
+
+<p style="text-align:justify;">The second regression tree is fitted with `caret::train()`, specifying `method = "rpart"`. We will build the model using 10-fold cross-validation to optimize the hyperparameter CP and avoid overfitting. We are letting the model look for the best CP tuning parameter with `tuneLength` (this parameter defines the total number of parameter combinations that will be evaluated).</p> 
+
+```{r, include=FALSE}
+dt.trControl <- trainControl(
+  method = "cv",
+  number = 10,
+  savePredictions = "final" # save predictions for the optimal tuning parameter
+)
+```
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+#model with tuneLenght to find closest cp
+set.seed(1234)
+dt.rt.cart2 <- train(
+   Popularity ~ Gender + Type + Episodes + Producers + 
+                 Studios + Source + Duration + Rating, 
+   data = dt.tr, 
+   method = "rpart",
+   tuneLength = 10,
+   metric = "RMSE",
+   trControl = dt.trControl
+)
+
+print(dt.rt.cart2)
+```
+
+<p style="text-align:justify;">After fitting the model with tune length of 10, the first `cp` (0.0095) is chosen, it produces the smallest RMSE (3305) with an R<sup>2</sup> equal to 57%. As we can see on the graph below, it looks like the best performing tree is the unpruned one.</p>
+
+```{r}
+#Plot RMSE vs cp
+plot(dt.rt.cart2)
+
+```
+
+<p style="text-align:justify;">The final model obtained after tuning the cp is visually interpretable and has 10 final nodes. Indeed, the following tree is more precise than the one studied above.</p>
+
+```{r}
+rpart.plot(dt.rt.cart2$finalModel)
+```
+
+<p style="text-align:justify;">The most important indicator of `Popularity` in this regression tree is `Studios Unknown`, followed by `Producers Unknown` and `RatingRx`. Furthermore, we can see that the important variables differ from the ones of the previous regression tree, the analysis on the same dataset can lead to different trees and different interpretation.</p>
+
+<p style="text-align:justify;">The interpretation of this tree is the following: if the `studio` is `unknown` (=1), go on the right, if the Rating is `Rx` (restricted anime), go on the left and the Popularity predicted is 8028. On the contrary, if the studio and the producer are known we go two times on the left, if the `anime` episodes are longer than `21 minutes`, go left, if the source is known, go left and if the duration is less than `25 min`, go left. The predicted `popularity` is 2835.</p>
+
+### Predictions of the Regression Tree (Caret)
+
+<p style="text-align:justify;">The RMSE, MAE and R2 are computed on the test and training set. The scores computed on the training set (R<sup>2</sup>= 0.571) are almost equal to the one computed on the test set (R<sup>2</sup>=0.574), showing that the model performs well and that there is no overfitting of the data.</p>
+
+<p style="text-align:justify;">The following graph represents the predicted values against the observed `popularity`.</p>
+
+```{r}
+dt.preds.cart2 <- predict(dt.rt.cart2, dt.te, type = "raw")
+
+data.frame(Actual = dt.te$Popularity, Predicted = dt.preds.cart2) %>%
+ggplot(aes(x = Actual, y = Predicted)) +
+   geom_point(alpha = 0.6, color = "cadetblue") +
+   geom_smooth(method = "loess", formula = "y ~ x") +
+   geom_abline(intercept = 0, slope = 1, linetype = 2) +
+   labs(title = "Popularity CART, Predicted vs Actual (caret)")
+```
+
+<p style="text-align:justify;">The model predicts 10 different values of `popularity` for the animes. This tree is much more precise than the previous one which predicted only 4 different `popularity` values. To compare the prediction quality of the two regression trees and the linear regression, the following scoreboard can be used.</p>
+
+```{r, include=FALSE}
+#Score on test set
+dt.rmse.cart2 <- RMSE(pred = dt.preds.cart2, obs = dt.te$Popularity)
+dt.r2.cart2 <-R2(pred = dt.preds.cart2, obs = dt.te$Popularity)
+dt.MAE.cart2 <-MAE(pred = dt.preds.cart2, obs = dt.te$Popularity)
+
+#Score on tr set to compare
+dt.preds.cart2_tr <- predict(dt.rt.cart2, dt.tr, type = "raw")
+RMSE(pred = dt.preds.cart2_tr, obs = dt.tr$Popularity)
+R2(pred = dt.preds.cart2_tr, obs = dt.tr$Popularity)
+MAE(pred = dt.preds.cart2_tr, obs = dt.tr$Popularity)
+```
+
+<p style="text-align:justify;">The table summarizes the scores of the linear regression and the two regression trees.</p>
+
+```{r}
+dt.scoreboard <- rbind(
+   data.frame(Model = "Single Tree ", RMSE = dt.rmse.cart, R2=dt.r2.cart2, MAE=dt.MAE.cart2),
+   data.frame(Model = "Single Tree (caret)", RMSE = dt.rmse.cart2,R2 =dt.r2.cart, MAE=dt.MAE.cart),
+   data.frame(Model="Linear Regression", RMSE= RMSE.lin.reg, R2=R2.lin.reg, MAE=MAE.lin.reg)
+) 
+
+datatable(dt.scoreboard)%>% 
+  formatRound(columns = c("RMSE", "R2", "MAE"), digits = 2)
+```
+
+```{r, include=FALSE}
+#Plot residuals
+plot(predict(dt.rt.cart),residuals(dt.rt.cart))
+plot(predict(dt.rt.cart2),residuals(dt.rt.cart2))
+plot(predict(anime.cv.reg),residuals(anime.cv.reg))
+# no ponctual high error so prefer RMSE for all models
+```
+
+<p style="text-align:justify;">Both regression trees have approximately the same scores, one with a higher RMSE and lower MAE and the opposite for the other one. Indeed, the MAE is less sensitive to specific errors and prefers models with overall lower error, unlike the RMSE. After plotting the residuals against the predicted values of each model, the model with the lowest RMSE and best R<sup>2</sup> is chosen because the models don't have very large errors.</p>
+
+<p style="text-align:justify;">To conclude, the linear regression is the best performing model to predict the `popularity` of the `anime`, the model has the highest R<sup>2</sup> and lowest RMSE and MAE. Moreover, the linear regression predicts more accurate values based on the anime features, while the regression trees only predict 4 or 10 different values. However, the regression tree fitted with caret is easier to interpret.</p>
+
+## Classification Tree Model 
+
+<p style="text-align:justify;">The last model implemented to predict popularity is a classification tree. The aim is to have a model with a good prediction quality and easy to interpret.</p> 
+
+<p style="text-align:justify;">Based on the distribution of popularity, the outcome variable will be divided into 3 groups: `Low`, `Medium` and `high`. Since we are more interested in popular animes, half of the animes will be considered to have low popularity. </p>
+
+<p style="text-align:justify;">The data will be separated into training set and test set. In the training set, 5639 instances represent low popularity, twice greater than other `popularity` levels. This may lead to inaccurate results in the prediction, but let's check the performance at first. Balancing data would be implemented later on.</p>
+
+```{r, include=FALSE}
+library(ISLR)
+#Distribution of populairty
+quantile(data_Total$Popularity) # 0  4320  8715 13123 17560 
+
+#Categorize populairty: 
+df <- data_Total %>% 
+  mutate(PopLevel=ifelse(Popularity <= 8715, "Low",
+                         ifelse(Popularity <= 13123 & Popularity > 8715, "Medium", "High")))%>%
+  select(-Popularity)
+```
+
+```{r}
+#Setting training data set
+set.seed(123) 
+index.tr <- sample(x=1:nrow(df), size=2/3*nrow(df), replace=FALSE)
+df.tr <- df[index.tr,]
+df.te <- df[-index.tr,]
+
+table(df.tr$PopLevel)
+```
+
+<p style="text-align:justify;">As expected, training data is not balanced. </p>
+
+<p style="text-align:justify;">Similar to steps of regression tree, first a full tree is built. The full tree has 8 branches. To obtain a better result, branches that do not participate enough in the prediction quality will be cut.</p>
+
+```{r, include=FALSE}
+#CART
+set.seed(1234) #For reproduction
+
+df.tree <- rpart(PopLevel ~ Gender + Type + Episodes + Producers + 
+                 Studios + Source + Duration + Rating, data=df.tr)
+set.seed(1234)
+rpart.plot(df.tree)
+```
+
+```{r}
+set.seed(1234)
+printcp(df.tree)
+```
+
+<p style="text-align:justify;">The root node contains 5699 errors out of the 11338 values (50%). According to the 1-SE rule, keeping 4 or 7 branches doesn't make any change on the result. In this case, we will keep the shortest tree - four branches. The argument in prune should be set to any value between the cp of the 7-split tree (0.01) and the 4-split tree (0.02). Thus, four splits will be applied.</p> 
+
+```{r, include=FALSE}
+set.seed(1234)
+plotcp(df.tree) 
+```
+
+```{r}
+set.seed(1234)
+df.tree.prune <- prune(df.tree, cp=0.02)
+rpart.plot(df.tree.prune)
+```
+
+<p style="text-align:justify;">Let's now look closer into the pruned graph. It seems that `Rating` is one of the most important variables for the `popularity` prediction, followed by `studios`, especially when the animes are produced by DLE and TMS Entertainment. If the animes are produced by A-1 Pictures, SIC, Bones etc, they are more likely to be classified as low popularity. More detailed interpretation will be introduced after balancing data.</p>
+
+### Variable importance
+
+<p style="text-align:justify;">The tree above is difficult to interpret because of its size, the following graph allows us to identify the important variables of the model to predict `popularity`.</p>
+
+```{r}
+# identify the most important variables with the following graph. 
+set.seed(1234)
+df.tree.prune$variable.importance %>% 
+   data.frame() %>%
+   rownames_to_column(var = "Feature") %>%
+   rename(Overall = '.') %>%
+   ggplot(aes(x = fct_reorder(Feature, Overall), y = Overall)) +
+   geom_pointrange(aes(ymin = 0, ymax = Overall), color = "cadetblue", size = .3) +
+   theme_minimal() +
+   coord_flip() +
+   labs(x = "", y = "", title = "Variable Importance - CART")
+```
+
+<p style="text-align:justify;">As for the first regression tree and the linear regression, the rating is the most important indicator of the `popularity`, followed by `Studios` and `Source`.</p>
+
+### Predictions with the classification tree 
+
+<p style="text-align:justify;">Now we'll start to make the predictions for the classification tree.</p>
+
+```{r}
+set.seed(1234)
+library(RColorBrewer)
+library(caret)
+#prediction
+pred <- predict(df.tree.prune, newdata=df.te, type="class")
+```
+
+<p style="text-align:justify;">The pruning process leads to an accuracy of 0.694 and a Kappa of 0.479 as we can see on the R output below. Meanwhile, low popularity has a very high sensitivity rate, Medium popularity has very low sensitivity representing 17%. High popularity has the highest balanced accuracy (0.81). Overall, the model performs relatively well.</p> 
+
+```{r}
+#confusion matrices
+confusionMatrix(data=as.factor(pred), reference = as.factor(df.te$PopLevel))
+```
+
+<p style="text-align:justify;">The confusion matrix shows the performance of the prediction. In order to visualize the result, the following graph is presented. On this graph, we can see that the model performs best in predicting the Low popularity category (dark blue) and the worse in predicting the medium `popularity` class (light blue). </p>
+
+```{r}
+#Visualization of the result
+plot(as.factor(df.te$PopLevel), as.factor(pred),
+     main = "CART: Predicted vs. Actual",
+     xlab = "Actual",
+     ylab = "Predicted",
+     col=c("#e0ecf4","#9ebcda","#8856a7"))
+```
+
+<p style="text-align:justify;">The F1 score provides a harmonic mean of the specificity and the sensitivity, the following table summarizes the F1 score for the different classes. It seems that the prediction for medium popularity still needs great improvement.</p>
+
+```{r}
+F1 <- rbind(
+   data.frame(c(F1_high=2*0.740*0.874/(0.740+0.874),
+                F1_medium=2* 0.9434*0.1777/(0.9434+0.1777),
+                F1_low=2*0.658*0.921/(0.658+0.921))))
+
+colnames(F1) <- c("F1")
+kable(F1) %>% kable_styling()
+```
+
+### Predictions with balaced data
+
+<p style="text-align:justify;">We will now balance the training set to check if we can get improvement in the prediction results. To balance the classes, re-sampling will be applied to increase the weight of the minority classes (medium and high).</p>
+
+```{r}
+#re-sampling, 
+set.seed(1234)
+n.max<-max(table(df.tr$PopLevel))
+
+df.tr.low <- filter(df.tr,PopLevel=="Low")
+df.tr.medium <- filter(df.tr,PopLevel=="Medium")
+df.tr.high <- filter(df.tr,PopLevel=="High")
+
+index.medium <- sample(size=n.max, x=1:nrow(df.tr.medium),replace=TRUE)
+index.high <- sample(size=n.max, x=1:nrow(df.tr.high),replace=TRUE)
+
+df.tr.res <- data.frame(rbind(df.tr.low,df.tr.medium[index.medium,],df.tr.high[index.high,]))
+
+table(df.tr.res$PopLevel)
+```
+
+__Modeling and prediction after re-sampling__
+
+<p style="text-align:justify;">Now we have a balanced data set where each class has the same amount as the largest class in the original training set. The model is fitted and pruned again.</p>
+
+```{r, include=FALSE}
+#Pruning
+set.seed(1234)
+df.tree.res <- rpart(PopLevel ~ Gender + Type + Episodes + Producers + 
+                 Studios + Source + Duration + Rating, data=df.tr.res)
+rpart.plot(df.tree.res)
+```
+
+```{r}
+set.seed(1234)
+printcp(df.tree.res)
+#plotcp(df.tree.res) #0.02
+```
+
+<p style="text-align:justify;">This table suggests a 3 splits tree, cp=0.02. According to the 1-SE rule, 0.5 + 0.006 = 0.5006, in addition, the simplest tree whose xerror is lower than this bound is the unpruned tree with 3 nodes.</p>
+
+```{r}
+set.seed(1234)
+df.tree.prune.res <- prune(df.tree.res, cp=0.02)
+rpart.plot(df.tree.prune.res)
+```
+
+<p style="text-align:justify;">This graph reveals that Rating and Studios are the most important variables. The interpretation of the tree is the following, if the Rating is `G`, `PG` or `Unknown`, go left, if the `Studio` of the anime is A-1 Pictures for example go left, and finally because the `Studio` name is different from DLE, TMS Entertainment or Unknown go right. The predicted popularity is medium.</p>
+
+```{r}
+set.seed(1234)
+#Prediction
+pred.res <- predict(df.tree.prune.res, newdata=df.te, type="class")
+
+#Confusion matrices
+confusionMatrix(data=as.factor(pred.res), reference = as.factor(df.te$PopLevel))
+```
+
+```{r, include=FALSE}
+set.seed(1234)
+#Visualization of the result
+plot(as.factor(df.te$PopLevel), as.factor(pred.res),
+     main = "CART: Predicted vs. Actual",
+     xlab = "Actual",
+     ylab = "Predicted",
+     col=c("#e0ecf4","#9ebcda","#8856a7"))
+```
+
+<p style="text-align:justify;">Comparing to the previous results, re-sampling decreased slightly accuracy from 0.694 to 0.653. If we look closely into the results of sensitivity, `popularity` at medium level was remarkable improved, increased from 0.18 to 0.504. Meanwhile,the sensitivity of low popularity decreased ~24%, high sensitivity has remained constant. The result of specificity is the inverse. Balanced accuracy improved in general.</p>
+
+<p style="text-align:justify;">When it comes to the F1 scores, medium popularity prediction improved remarkably from 0.299 to 0.597.</p>
+
+```{r}
+set.seed(1234)
+F1.res <- rbind(
+   data.frame(c(F1_high=2*0.74*0.874/(0.740+0.874),
+                F1_medium=2* 0.504*0.732/(0.504+0.732),
+                F1_low=2*0.683*0.9/(0.683+0.9))))
+
+colnames(F1.res) <- c("F1")
+kable(F1.res) %>% kable_styling()
+```
+
+### Variable importance balanced data
+
+```{r}
+set.seed(1234)
+#Validate important model & variable interpretation
+df.tree.prune.res$variable.importance %>% 
+   data.frame() %>%
+   rownames_to_column(var = "Feature") %>%
+   rename(Overall = '.') %>%
+   ggplot(aes(x = fct_reorder(Feature, Overall), y = Overall)) +
+   geom_pointrange(aes(ymin = 0, ymax = Overall), color = "cadetblue", size = .3) +
+   theme_minimal() +
+   coord_flip() +
+   labs(x = "", y = "", title = "Variable Importance after resampling- CART")
+
+```
+
+<p style="text-align:justify;">After re-sampling, it seems that the importance of `type` decreased a lot, producers seem more important than in the previous results.</p>
+
+__Eliminate Type, Duration, Producers & Episodes to see if accuracy will be improved__
+
+<p style="text-align:justify;">For the sake of simplicity of the final model, we will include only important variables. By eliminating `type`, `duration`, `producers` and `episodes` one by one, on the R output, we notice that without these variables the accuracy of the final result isn't influenced. Thus finally we decide to consider only `Genre`, `studio`, `source` and `rating` to plot the tree.</p>
+
+```{r}
+#Pruning
+set.seed(1234)
+df.tree.res2 <- rpart(PopLevel ~ Gender  + 
+                 Studios + Source + Rating, data=df.tr.res)
+
+df.tree.prune.res2 <- prune(df.tree.res2, cp=0.01)
+
+#Prediction
+pred.res2 <- predict(df.tree.prune.res2, newdata=df.te, type="class")
+
+#Confusion matrix
+confusionMatrix(data=as.factor(pred.res2), reference = as.factor(df.te$PopLevel))
+
+```
+
+```{r, include=FALSE}
+set.seed(1234)
+dt.trControl <- trainControl(
+  method = "cv",
+  number = 10,# 10 folds
+  savePredictions = "final", # save predictions for the optimal tuning parameter
+  classProbs = TRUE  # return class probabilities in addition to predicted values
+)
+set.seed(1234)
+df.tune <- train(PopLevel ~ Gender  + Studios + Source + Rating, 
+   data = df.tr.res, 
+   method = "rpart",# for classification tree
+   tuneLength = 10, # choose up to 10 combinations of tuning parameters (cp)
+   trControl = dt.trControl
+)
+
+print(df.tune)
+
+plot(df.tune) #cp = 0.00293
+df.tune$bestTune
+```
+
+<p style="text-align:justify;">By applying cross-validation, when cp = 0.00293, the model has the best accuracy and kappa. We will now apply the best cp value and the most important variables to the model.</p>
+
+```{r, include=FALSE}
+#Pruning
+set.seed(1234)
+df.tree.res3 <- rpart(PopLevel ~ Gender  + Studios + Source + Rating, 
+                      data=df.tr.res)
+
+df.tree.prune.res3 <- prune(df.tree.res3, cp=0.00293)
+
+#Prediction
+pred.res3 <- predict(df.tree.prune.res3, newdata=df.te, type="class")
+
+#Confusion matrix
+confusionMatrix(data=as.factor(pred.res3), reference = as.factor(df.te$PopLevel))
+```
+
+<p style="text-align:justify;">The goodness of the final model after tuning the CP and re-sampling has 20 nodes and doesn't change in terms of accuracy and Kappa. That's why the simplest model fitted after re-sampling the data, with fewer branches is kept.</p>
+
+```{r, include=FALSE}
+#The following graph shows the final model after tuning the CP.The boxes on the classification tree show the node predicted class.
+set.seed(1234)
+rpart.plot(df.tune$finalModel)
+#plot the trees
+par(xpd = NA) 
+plot(df.tune$finalModel)
+text(df.tune$finalModel, digits = 3)
+```
+
+<p style="text-align:justify;">To conclude, the classification trees before and after re-sampling perform relatively well, however, the overall F1 score and the balanced accuracy are better after re-sampling. Classification trees provide a very intuitive graph. Nevertheless, an important limitation of classification tree's is that they are unstable, if we don't take care of setting seed, the structure of trees change all the time.</p>

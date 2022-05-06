@@ -1,0 +1,42 @@
+---
+title: "Anime Recommendation"
+output:
+  html_document:
+    always_allow_html: yes
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+    toc_collapsed: yes
+    toc_depth: 4
+    theme: lumen
+    code_folding: hide
+    lof_float: yes
+    fig_caption: yes
+    fig_width: 7
+    fig_height: 6
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+# Conclusion
+
+<p style="text-align:justify;">Due to the data size, we were not able to apply K-NN in the analysis, since it will make the predictions based on the whole database. Naive Bayes wasn't chosen, since this method assumes that all the variables are independent and it uses density estimation, which would be difficult for us to implement since most of our variables are categorical.</p>
+
+<p style="text-align:justify;">Among all the methods introduced above, linear regression and classification tree provide quantitative results. As shown at the end of the regression tree part, the linear regression is the best model according to the RMSE, R2 and MAE score to predict the popularity.</p>
+
+<p style="text-align:justify;">Rating is the most important contributor for both linear regression model and regression tree. While from the linear regression model, we can observe that the rating level PG-13 is the key indicator for popularity. `studio` is one of the most important variables in the regression tree model.</p>
+
+<p style="text-align:justify;">Classification tree provides the most intuitive result, but again, trees are not stable, we have to keep in mind to not over-interpret the results. Furthermore, data balancing is relatively important for this method. Balanced accuracy and F1 score increased after re-sampling. Important variables in the classification tree are the same as those for the regression tree.</p>
+
+<p style="text-align:justify;">Regarding the Unsupervised learning method, PCA enables to reduce the dimensions and identify 3 potential clusters among the 2 first dimensions which explain most of the variance. Meanwhile, the features seem independent as 5 dimensions will be necessary to explain enough variance of the data.</p>
+
+<p style="text-align:justify;">Because of the large number of instances, we conducted cluster analysis on 1000 anime. Even if it was not representative for our whole data set, we were able to identify clear clusters. In fact, most real-world datasets have inherently overlapping information, further overlapping clustering methods could be implemented to improve this cluster analysis. The dendrogram analysis enabled us to obtain valuable information about the 20 most popular anime.</p>
+ 
+# Recommendation
+
+<p style="text-align:justify;">As an anime `licensor`, the goal of our project was to predict the `popularity` of anime, thanks to the several models implemented we could identify that the `Studio` and `Rating` are decisive variables of the anime's `popularity.` To be more precise, the anime produced an Unknown studio or DLE `Studio` and of `rating` "G" for all ages, are those with the highest popularity overall, to know for which anime we should buy, renew the licenses or not, it is essential to be aware of the `Studio`, `rating` and `producer` of the anime. Indeed, these are the most essential indicators of `popularity` of an anime.</p>
+ 
+ 
+ 
+ 
